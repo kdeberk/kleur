@@ -25,6 +25,7 @@ fn main() -> Result<()> {
             return Err(x);
         },
         Ok(None) => {
+            println!("WARNING: Kleur found no rules for this invocation");
             rules = Vec::new();
         }
         Ok(Some(found)) => {
@@ -41,7 +42,6 @@ fn main() -> Result<()> {
     let reader = BufReader::new(stdout);
 
     if 0 == rules.len() {
-        println!("WARNING: Kleur found no rules for this invocation");
         reader
             .lines()
             .filter_map(|line| line.ok())
