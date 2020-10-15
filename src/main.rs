@@ -1,11 +1,13 @@
 #[macro_use]
 extern crate error_chain;
 extern crate regex;
+extern crate os_pipe;
 
 use std::env;
-use std::process::{Command, Stdio};
+use std::process::Command;
 use std::io::{BufRead, BufReader};
 use regex::Captures;
+use os_pipe::pipe;
 
 mod config;
 mod errors;
@@ -33,14 +35,17 @@ fn main() -> Result<()> {
         }
     }
 
-    let stdout = Command::new(&args[1])
-        .args(&args[2..])
-        .stdout(Stdio::piped())
-        .spawn()?
-        .stdout
-        .ok_or_else(|| Error::from("Failed to execute command"))?;
-    let reader = BufReader::new(stdout);
+    let(reader, writer) = pipe()?;
+    let mut child = Command::new(&args[1]);
+    child.args(&args[2..]);
+    child.stdout(writer.try_clone()?);
+    child.stderr(writer);
 
+    let mut handle = child.spawn()
+        .expect("Failed to execute command");
+    drop(child);
+
+    let reader = BufReader::new(reader);
     if 0 == rules.len() {
         reader
             .lines()
@@ -52,6 +57,7 @@ fn main() -> Result<()> {
             .filter_map(|line| line.ok())
             .for_each(|line| println!("{}", colorize_line(&line, &rules)));
     }
+    handle.wait()?;
 
     Ok(())
 }
